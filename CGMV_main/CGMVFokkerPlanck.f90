@@ -1,13 +1,5 @@
 !Coarse Grain Momentum Volume(CGMV) algorithm for Isotropic Cosmic Ray-Fokker Planck Equation
 
-!TIME STEP PROBLEM: Convergence to wrong solution without subcycling. (PROBABLY RELATED TO THE BOUNDARY CONDITION PROBLEM) 
-!BOUNDARY CONDITION PROBLEM: Convergence to wrong solution without separate advection, 
-!probably due to incompatibility of boundary conditions with that does advection 
-!and diffusion together. With advection separated from diffusion, solution converges correctly. 
- 
-!Directional bias (converges when shock moves left, but fails to converge for right moving shock).  
-!definitely related to boundary condition problem.
-
 module FokkerPlanck_mod
 use constants_mod
 implicit none
@@ -78,7 +70,7 @@ do i=0,np-1
   !if(px(i)>1.D-4)then
    f(i,j)=px(i)**(-4.5)!*exp(-((xmin+j*dx)/(10.*dx))**2. )
   !else 
-  ! f(i,j)=1.d-10
+  !f(i,j)=1.d-50
   !end if
   
 
@@ -150,7 +142,7 @@ end do
 do i=0,np-1
  do j=0,nx-1
    pres=(gam-1.)*(u1(j,3)-0.5*u1(j,2)*u1(j,2)/u1(j,1))
-   f(i,j)=f(i,j)*(pres/Pc(j))*100.
+   f(i,j)=f(i,j)*(pres/Pc(j))*0.01!*100.
   end do
   f(i,-1)=f(i,0)
   f(i,nx)=f(i,nx-1)
@@ -181,7 +173,6 @@ end do
 do j=0,nx-1
  write(111,*) j,xmin+dx*j,n(10,j),g(10,j),q(10,j)
 end do
-
 
 !Compute CR Pressure
 Pc=0.
@@ -333,7 +324,7 @@ do j=1,np-1
   call computeSpatialCoefficients(j,1)
 
   do k=0,nx-1
-    r(k)=n(j,k)+dt2*(Fn(j,k)-Fn(j-1,k))!+dt2*Qi(j,k,1)
+    r(k)=n(j,k)+dt2*(Fn(j,k)-Fn(j-1,k))+dt2*Qi(j,k,1)
    if(advectionOption==2)then
     r(k)=r(k)-dt2*dudx(k)*n(j,k)
    end if
@@ -354,8 +345,8 @@ do j=1,np-1
   call computeSpatialCoefficients(j,2)
   do k=0,nx-1
     r(k)=g(j,k)+dt2*(Fp(j,k)-Fp(j-1,k)) &
-         +dt2*(-(1./3.)*dudx(k))*g(j,k) !&
-        !+dt2*(q(j,k)*D(j)/(px(j)*px(j)))*g(j,k)+dt2*Qi(j,k,2) 
+         +dt2*(-(1./3.)*dudx(k))*g(j,k) &
+         +dt2*(q(j,k)*D(j)/(px(j)*px(j)))*g(j,k)+dt2*Qi(j,k,2) 
     if(advectionOption==2)then
      r(k)=r(k)+dt2*(-dudx(k))*g(j,k)  
    end if
@@ -366,7 +357,7 @@ do j=1,np-1
    g(j,k)=ftemp(k)   
   end do
 
-  !Open bundaries 
+  !Continuous bundaries 
   n(j,-1)=n(j,0)
   g(j,-1)=g(j,0)
   n(j,nx)=n(j,nx-1)
@@ -393,10 +384,11 @@ do j=0,nx-1
    STOP
   end if
 
+  !print*,'CHECKPOINT2.0'
   !Update Spectral Index
   !print*,'j,k,q0,g/np,dw=',j,k,q(k,j),g(k,j)/n(k,j)/px(k-1),dw
   call rootSolveNewton(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)  
-  !print*,'CHECKPOINT2.0'
+  
   !call rootSolveSecant(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)
   !print*,'CHECKPOINT2.5'
   if(abs(qtemp-3.)<1.d-2 .or. abs(qtemp-4.)<1.d-2)then
@@ -480,14 +472,14 @@ end do
 !-------------------------------------
 
 !for no-flux boundary on the left
-!Wminus(-1)=0.
-!Wplus(-1)=0.
-!Cp(-1)=0.
+Wminus(-1)=0.
+Wplus(-1)=0.
+Cp(-1)=0.
 
 !for no-flux boundary on the right
-Wplus(nx-1)=0.
-Wminus(nx-1)=0.
-Cp(nx-1)=0.
+!Wplus(nx-1)=0.
+!Wminus(nx-1)=0.
+!Cp(nx-1)=0.
 
 
 
@@ -510,7 +502,6 @@ do jj=0,nx-1
    Btx(jj)= Wminus(jj)-Wplus(jj-1)-Cp(jj)-Cp(jj-1)
    Btx(jj)=Btx(jj)*dt2/dx
    Btx(jj)=-Btx(jj)+1.
-
   if(methodType==2)then 
    Btx(jj)=0.5*(Btx(jj)+1.)
   end if
@@ -519,14 +510,14 @@ do jj=0,nx-1
 end do
 
 !for open boundary on the left 
-Atx(0)=0.
-Btx(0)=1.
-Ctx(0)=0.
+!Atx(0)=0.
+!Btx(0)=1.
+!Ctx(0)=0.
 
 !for open boundary on the right 
-!Atx(nx-1)=0.
-!Btx(nx-1)=1.
-!Ctx(nx-1)=0.
+Atx(nx-1)=0.
+Btx(nx-1)=1.
+Ctx(nx-1)=0.
 
 
 
@@ -637,14 +628,14 @@ pres=(gam-1.)*(u2(shockCell(1)-1,3) &
 cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
-pinj=alpha*cs2
+pinj=0.05!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
 !print*,'pinj,pin=',pinj
 
 !Spatial weight function
-wx=(dx*xk-dx*(shockCell(1)-1))/(4.*dx)
-wx=exp(-wx**2.)/sqrt(3.141592*(4.*dx)**2.)
+wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
+wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
 !if(xk==shockCell(1)-1)then
 !  wx=1.
 !else
@@ -658,6 +649,7 @@ else
  sx=0._8
 end if
 
+
 if(option==2)then
 sx=sx*pinj
 end if
@@ -669,7 +661,7 @@ integer,intent(in)::xk
 real*8::fx
 
 real*8,parameter::alpha=2.
-real*8::eps=0.005
+real*8::eps=0.001
 real*8::mp=0.1
 
 real*8::cs2,rho1,rho2,pinj,us,pres,wx
@@ -680,8 +672,8 @@ integer::pin
 !Flux fraction injection model
 !------------------------------
 !Shock Speed
-ut1=-2.*sqrt(gam)    !u1(shockCell(1),2)/u1(shockCell(1),1)
-ut2=0.               !u1(shockCell(1)-2,2)/u1(shockCell(1)-2,1)
+ut1=u2(shockCell(1),2)/u2(shockCell(1),1)
+ut2=u2(shockCell(1)-2,2)/u2(shockCell(1)-2,1)
 us=(1./3.)*(4.*ut2-ut1)     !(1./3.)*2.*sqrt(gam)
 !pre-shock density
 rho1=1.!u1(shockCell(1),1)
@@ -690,26 +682,26 @@ rho1=1.!u1(shockCell(1),1)
 !pres=(gam-1.)*(u1(shockCell(1)-2,3) &
 !-0.5*u1(shockCell(1)-2,2)*u1(shockCell(1)-2,2)/u1(shockCell(1)-2,1))
 !rho2=u1(shockCell(1)-2,1)
-pres=(gam-1.)*(u1(shockCell(1)-1,3) &
--0.5*u1(shockCell(1)-1,2)*u1(shockCell(1)-1,2)/u1(shockCell(1)-1,1))
-rho2=u1(shockCell(1)-1,1)
+pres=(gam-1.)*(u2(shockCell(1)-1,3) &
+-0.5*u2(shockCell(1)-1,2)*u2(shockCell(1)-1,2)/u2(shockCell(1)-1,1))
+rho2=u2(shockCell(1)-1,1)
 cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
 !pinj=lambda*sqrt(gam*pres/ 3.976468)
-pinj=alpha*cs2
+pinj=0.05!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
 !Spatial weight function
-wx=(dx*xk-dx*(shockCell(1)-1))/(4.*dx)
-wx=exp(-wx**2.)/sqrt(3.141592*(4.*dx)**2.)
+wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
+wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
 !if(xk==shockCell(1)-1)then
 !  wx=1.
 !else
 !  wx=0.
 !end if
 
-fx=0.5*eps*wx*(pin**2.)*rho1*us
+fx=0.5*eps*wx*(pinj**2.)*rho1*us
 
 end function fluidS
 !------------------------------------------------------------------!
@@ -717,7 +709,7 @@ end function fluidS
 
 subroutine rootSolveNewton(qi0,gnp,dw,qi)
 real*8::qi0,gnp,dw,qi
-integer::niter=20
+integer::niter=3
 real*8::q0
 real*8::itertol=1.D-2
 integer::i,iterCount=0

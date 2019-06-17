@@ -60,7 +60,7 @@ do i=1,nt
     u2(j,2)=u2(j,2)-(dt/dx)*0.5*(Pc(j+1)-Pc(j-1))
     !Include CR pressure back reaction effect on fluid energy 
     u2(j,3)=u2(j,3)-(dt/dx)*0.5*(Pc(j+1)-Pc(j-1))*(u1(j,2)/u1(j,1))
-    !u2(j,3)=u2(j,3)-dt*fluidS(j)*dx
+    u2(j,3)=u2(j,3)-dt*fluidS(j)*dx
     !----------------------------------------------------------------------------
 
     x=xmin+(j-0.5)*dx 
@@ -100,6 +100,8 @@ do i=1,nt
   !  write(123,*) xmin+(j-0.5)*dx,dudx(j)
   ! end if 
   !end do
+
+  print*,'du/dx=,',dudx(shockCell(1)-1)
 
   print*,'Updating CR...'
   !Evolve Cosmic Ray Distribution Function 

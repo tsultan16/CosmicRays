@@ -42,7 +42,7 @@ do i=-2,np+3
   if(momentumMeshType==1)then
    px(i)=pmin+i*(pmax-pmin)/np
   else if(momentumMeshType==2)then
-   px(i)=pmin*(pmax/pmin)**(real(i)/real(np))
+   px(i)=pmin*(pmax/pmin)**(real(i)/real(np-1))
   end if
   !print*,'i,px(i)=',i,px(i)
 end do
@@ -51,10 +51,9 @@ end do
 !Momentum mesh spacing
 do i=-1,np+2
  dp(i)=0.5*(px(i+1)-px(i-1))
- dp2(i)=px(i+1)-px(i)
+ dp2(i)=px(i)-px(i-1)
  !print*,'i,p,dp=',i,px(i),dp(i)
 end do
-
 
 !Check diffusion length and spatial resolution requirement
 xd=Kxx(0,0)
@@ -95,8 +94,7 @@ pres=(gam-1.)*(u1(nx,3)-0.5*u1(nx,2)*u1(nx,2)/u1(nx,1))
 
 do i=0,np-1
  do j=0,nx-1
-  f(i,j)=f(i,j)*(pres/Pc(j))
-  fexact(i)=4.*f(i,j)
+  f(i,j)=f(i,j)*(pres/Pc(j))!*100.
  end do
 end do
 
@@ -137,7 +135,6 @@ Pc(nx+1)=Pc(nx-1)
 !   pres=(gam-1.)*(u1(j,3)-0.5*u1(j,2)*u1(j,2)/u1(j,1))
 !  print*,'j,Pc,Pg=',j,Pc(j),pres
 !end do
-
 
 
 print*,'Done initializing CR distribution.'
@@ -181,6 +178,7 @@ real*8::pres,f2(-1:np,-1:nx)
   nt2=0
   dt2=dt
   dt3=dt
+  dtf=0.
  end if
 
 
@@ -234,13 +232,13 @@ do i=1,nt2+1
  if(i==nt2) dt3=dtf
 end do
 
+
 !-----------------------------------------------
 !Update CR pressure
 !-----------------------------------------------
 Pc=0.
 do j=0,nx-1
   do k=1,np-1
-    !if(f(k,j))
     Pc(j)=Pc(j)+(4.*cl/3.)*(px(k)**3.)*f(k,j)*dp2(k)
   end do
 end do
@@ -284,7 +282,6 @@ real*8::B2,C2,B1,C1,pi2,pi2L,w1,w2
 !-------------------------------------------------------------
 !Weights: w_j, delta_j, W^+_j+1/2, W^-_j+1/2 
 !-------------------------------------------------------------
-if(methodType .ne. 4)then
 do jj=-1,np+1
  C2=0.5*(C(jj)+C(jj+1))
  B2=0.5*(B(jj,xk)+B(jj+1,xk))
@@ -312,60 +309,44 @@ do jj=-1,np+1
   Wplus(jj)=B2*(1.-delta(jj))
 end do
 
-!---------------------------------
-!No-flux Boundary condition 
-!---------------------------------
-Wplus(0)=0.
-Wminus(0)=0.
-Cp(0)=0.
-Wplus(-1)=0.
+!-------------------------------------
+!No-flux/Continuous Boundary condition 
+!-------------------------------------
+
+!for no-flux boundary on the left
 Wminus(-1)=0.
+Wplus(-1)=0.
 Cp(-1)=0.
+
+!for no-flux boundary on the right
 Wplus(np-1)=0.
 Wminus(np-1)=0.
 Cp(np-1)=0.
-
-end if
 
 !------------------------------------------------------------
 !Co-efficients for tridiagonal system: ~A_j,~B_j,~C_j
 !------------------------------------------------------------
 do jj=0,np-1
-  if(methodType .ne. 4)then
-   At(jj)=dt2/(dp(jj)*A(jj))
-   At(jj)=At(jj)*(Wminus(jj-1)-Cp(jj-1))
+
+ At(jj)=dt2/(dp(jj)*A(jj))
+ At(jj)=At(jj)*(Wminus(jj-1)-Cp(jj-1))
+ if(methodType==2)then
+   At(jj)=At(jj)*0.5 
   end if
 
-  if(methodType==4)then
-  At(jj)=dt2/(dp(jj)*dp2(jj-1)*A(jj))
-  At(jj)=At(jj)*(C1-0.5*B1*dp2(jj-1))
-  At(jj)=-At(jj)
-  end if
+ Ct(jj)=dt2/(dp(jj)*A(jj))
+ Ct(jj)=-Ct(jj)*(Wplus(jj)+Cp(jj))
+ if(methodType==2)then
+   Bt(jj)=Bt(jj)*0.5 
+ end if  
 
-  if(methodType .ne. 4)then
-   Ct(jj)=dt2/(dp(jj)*A(jj))
-   Ct(jj)=-Ct(jj)*(Wplus(jj)+Cp(jj))
-  end if
-  if(methodType==4)then
-   Ct(jj)=dt2/(dp(jj)*dp2(jj)*A(jj))
-   Ct(jj)=Ct(jj)*(C2+0.5*B2*dp2(jj))
-   Ct(jj)=-Ct(jj)
-  end if
+ Bt(jj)= Wminus(jj)-Wplus(jj-1)-Cp(jj)-Cp(jj-1)
+ Bt(jj)=Bt(jj)*dt2/(dp(jj)*A(jj))
+ Bt(jj)=-Bt(jj)+1.-dt2*Hp(xk)
+ if(methodType==2)then 
+   Bt(jj)=0.5*(Bt(jj)+1.)
+ end if   
 
-  if(methodType .ne. 4)then
-   Bt(jj)= Wminus(jj)-Wplus(jj-1)-Cp(jj)-Cp(jj-1)
-   Bt(jj)=Bt(jj)*dt2/(dp(jj)*A(jj))
-   Bt(jj)=-Bt(jj)+1.-dt2*Hp(xk)
-  end if
-  if(methodType==4)then
-   Bt(jj)=(C1+0.5*B1*dp2(jj-1))/dp2(jj-1) &
-        +(C2+0.5*B2*dp2(jj))/dp2(jj)
-   Bt(jj)=Bt(jj)*dt2/(dp(jj)*A(jj))
-   Bt(jj)=Bt(jj)+1.+dt2*Hp(xk)
-  end if 
-
-
-  !print*,'jj,At,Bt,Ct=',jj,At(jj),Bt(jj),Ct(jj)
 end do
  
 end subroutine computeMomentumCoefficients
@@ -453,15 +434,15 @@ end do
 !No-flux Boundary condition 
 !---------------------------------
 
-Wplus(0)=0.
-Wminus(0)=0.
-Cp(0)=0.
-!Wplus(-1)=0.
-!Wminus(-1)=0.
-!Cp(-1)=0.
-Wplus(nx-1)=0.
-Wminus(nx-1)=0.
-Cp(nx-1)=0.
+!for no-flux boundary on the left
+Wminus(-1)=0.
+Wplus(-1)=0.
+Cp(-1)=0.
+
+!for no-flux boundary on the right
+!Wplus(nx-1)=0.
+!Wminus(nx-1)=0.
+!Cp(nx-1)=0.
 
 
 
@@ -488,10 +469,17 @@ do jj=0,nx-1
   if(methodType==2)then 
    Btx(jj)=0.5*(Btx(jj)+1.)
   end if
-
-  !print*,'jj,Atx,Btx,Ctx=',jj,Atx(jj),Btx(jj),Ctx(jj)
 end do
 
+!for open boundary on the left 
+!Atx(0)=0.
+!Btx(0)=1.
+!Ctx(0)=0.
+
+!for open boundary on the right 
+Atx(nx-1)=0.
+Btx(nx-1)=1.
+Ctx(nx-1)=0.
 
 end subroutine computeSpatialCoefficients
 
@@ -569,7 +557,7 @@ function E(xk) result(ex)
 integer,intent(in)::xk
 real*8::ex
 
-ex=-u1(xk,2)/u1(xk,1)
+ex=-u2(xk,2)/u2(xk,1)
 
 end function E
 
@@ -580,7 +568,7 @@ integer,intent(in)::xk,pk
 real*8::kx
 
 !kx=0.05
-kx=0.05/u1(xk,1)
+kx=0.05/u2(xk,1)
 !kx=10.*(px(pk)**0.51)
 
 

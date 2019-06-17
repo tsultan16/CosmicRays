@@ -6,7 +6,7 @@ set output 'FluidState.gif'
 
 
 tSteps=200
-nx=2000
+nx=1000
 
 set key font ",10"
 

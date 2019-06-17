@@ -1,12 +1,12 @@
 #CR State Plot
 
-set terminal gif animate delay 20 size 1280, 680
+set terminal gif animate delay 200 size 1280, 680
 set output 'CRState2.gif'
 
 tSteps=200
-np=100
+np=200
 np=np-1
-nx=2000
+nx=1000
 
 #set key font ",10"
 
@@ -23,7 +23,7 @@ do for [i=0:tSteps-1] {
   #set xrange[1e-3:1e6]
   #set yrange[0:1.3e6]
 
-  plot "ng_p.txt" every ::i*np+1::np+(i*np)-1 using 2:3 with linespoint pointtype 6 lc rgb "red" notitle
+  plot "ng_p.txt" every ::i*np+1::np+(i*np)-1 using 2:3 with lines lc rgb "red" notitle
   unset title
   unset xlabel
   unset ylabel
@@ -35,7 +35,7 @@ do for [i=0:tSteps-1] {
   #set xrange[1e-3:1e6]
   #set yrange[1.e-6:5e-3]
 
-  plot "ng_p.txt" every ::i*np+1::np+(i*np)-1 using 2:4 with linespoint pointtype 6 lc rgb "red" notitle
+  plot "ng_p.txt" every ::i*np+1::np+(i*np)-1 using 2:4 with lines lc rgb "red" notitle
   unset title
   unset xlabel
   unset ylabel
@@ -47,8 +47,8 @@ do for [i=0:tSteps-1] {
   set xlabel "p"
   set ylabel "q(p)"
   #set xrange[1e-3:1e6]
-  set yrange[2:6]
-  plot "ng_p.txt" every ::i*np+1::np+(i*np)-1 using 2:5 with linespoint pointtype 6 lc rgb "red" notitle
+  #set yrange[2:6]
+  plot "ng_p.txt" every ::i*np+1::np+(i*np)-1 using 2:5 with lines lc rgb "red" notitle
   unset title
   unset xlabel
   unset ylabel

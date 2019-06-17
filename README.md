@@ -11,4 +11,4 @@ Note: These numerical methods are stable and first order accurate, and can be ap
 to general parabolic partial differential equations. 
 
 
-Note:For the CGMV scheme, need to be careful about setting the spatial boundary conditions.      
+Note:For the CGMV scheme, need to set spatial boundary conditions appropriately. Particle injection not currently working properly. Root solver fails. Need to fix. 

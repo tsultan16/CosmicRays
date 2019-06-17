@@ -5,9 +5,9 @@ set terminal gif animate delay 10 size 1280, 680
 set output 'M=40.gif'
 
 
-tSteps=200
-nx=500
-tSkip=5
+tSteps=100
+nx=1000
+tSkip=1
 
 set key font ",10"
 

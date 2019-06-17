@@ -4,7 +4,7 @@
 set terminal gif animate delay 10 size 1280, 680
 set output 'CRState.gif'
 
-tSteps=450
+tSteps=100
 np=100
 
 

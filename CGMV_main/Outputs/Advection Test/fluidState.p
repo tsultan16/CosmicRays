@@ -5,8 +5,8 @@ set terminal gif animate delay 10 size 1280, 680
 set output 'convergence_fluid.gif'
 
 
-tSteps=200
-nx1=500
+tSteps=100
+nx1=2000
 nx2=nx1
 
 

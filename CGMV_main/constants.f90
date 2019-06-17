@@ -4,9 +4,9 @@ implicit none
 !------------------------------------------------------------------------------------
 real*8,parameter::pi=1._8!3.14152
 !------------------------------------------------------------------------------------
-integer,parameter::nt=1000!2000
-integer,parameter::nx=2000
-integer,parameter::np=100
+integer,parameter::nt=2000!2000
+integer,parameter::nx=1000
+integer,parameter::np=200
 integer,parameter::debug=0!0:off 1:on
 integer,parameter::boundaryType=4 !1:outflow 2:periodic in x, outflow in y, 3:reflecting 4:periodic, 5:peridoc in x reflecting in y
 
@@ -28,7 +28,7 @@ real*8::lambda(-1:nx-1,3)
 integer,parameter::momentumMeshType=2 !1:uniform, 2:logarithmic
 integer,parameter::testType=0 !0,1,2,3
 integer,parameter::methodType=1 !1:C-C Fully Implicit, 2:C-C Semi-Implicit (Crank-Nicholson) 
-integer,parameter::advectionOption=1 !1:combined with spatial diffusion operator, 2:separate advection operator
+integer,parameter::advectionOption=2 !1:combined with spatial diffusion operator, 2:separate advection operator
 
 real*8,parameter::cl=100!speed of light
 real*8::Pc(-2:nx+2),dudx(0:nx-1)
@@ -45,6 +45,6 @@ integer::shockCell(1)
 integer::funit
 !-----------------------------------------------------------------
 
-integer,parameter::tSkip=10
+integer,parameter::tSkip=1
 
 end module constants_mod

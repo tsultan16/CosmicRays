@@ -48,19 +48,19 @@ smax=0.
 !uL=-10.*sqrt(gam*pL/rhoL)
 !uR=uL
 
-!rhoL=1.
-!rhoR=rhoL
-!pL=0.001
-!pR=pL
-!uL=-40.*sqrt(gam*pL/rhoL)
-!uR=uL
-
 rhoL=1.
 rhoR=rhoL
-uL=1.
-uR=uL
-pL=(1./gam)*(1./30.)**2.!0.1
+pL=0.001
 pR=pL
+uL=-40.*sqrt(gam*pL/rhoL)
+uR=uL
+
+!rhoL=1.
+!rhoR=rhoL
+!uL=1.
+!uR=uL
+!pL=(1./gam)*(1./30.)**2.!0.1
+!pR=pL
 
 
 do j=-2,nx+1
@@ -75,9 +75,10 @@ do j=-2,nx+1
   end if
 end do
 
+u2=u1
+
 print*,'Left State (rho,u,p) =',rhoL,uL,pL
 print*,'Right State (rho,u,p) =',rhoR,uR,pR
-
 
 
 !close(unit=10)
@@ -599,10 +600,10 @@ do k=1,3
   u2(nx+1,k)=u2(nx-1,k)
 end do
 
-!u2(-1,2)=-u2(0,2)	
-!u2(-2,2)=-u2(1,2)
-u2(nx,2)=-u2(nx-1,2)	
-u2(nx+1,2)=-u2(nx-2,2)
+u2(-1,2)=-u2(0,2)	
+u2(-2,2)=-u2(1,2)
+!u2(nx,2)=-u2(nx-1,2)	
+!u2(nx+1,2)=-u2(nx-2,2)
 
 
 go to 1003 

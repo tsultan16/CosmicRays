@@ -54,7 +54,7 @@ rhoL=1.
 rhoR=rhoL
 pL=0.001
 pR=pL
-uL=40.*sqrt(gam*pL/rhoL)
+uL=-40.*sqrt(gam*pL/rhoL)
 uR=uL
 
 !Standing Shock Initial Conditions
@@ -606,10 +606,10 @@ do k=1,3
   u2(nx+1,k)=u2(nx-1,k)
 end do
 
-!u2(-1,2)=-u2(0,2)	
-!u2(-2,2)=-u2(1,2)
-u2(nx,2)=-u2(nx-1,2)	
-u2(nx+1,2)=-u2(nx-2,2)
+u2(-1,2)=-u2(0,2)	
+u2(-2,2)=-u2(1,2)
+!u2(nx,2)=-u2(nx-1,2)	
+!u2(nx+1,2)=-u2(nx-2,2)
 
 
 go to 1003

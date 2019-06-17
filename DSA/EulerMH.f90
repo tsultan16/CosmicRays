@@ -71,7 +71,8 @@ do i=1,nt
 
   do j=0,nx-1
    !dudx(j)=(u3(j,2)/u3(j,1)-u3(j-1,2)/u3(j-1,1))/dx
-   dudx(j)=(u1(j,2)/u1(j,1)-u1(j-1,2)/u1(j-1,1))/dx
+   !dudx(j)=(u1(j,2)/u1(j,1)-u1(j-1,2)/u1(j-1,1))/dx
+   dudx(j)=(u2(j,2)/u2(j,1)-u2(j-1,2)/u2(j-1,1))/dx
    if(mod(i,tSkip)==0)then
     write(124,*) xmin+(j-0.5)*dx,dudx(j)
    end if 
