@@ -4,9 +4,9 @@ implicit none
 !------------------------------------------------------------------------------------
 real*8,parameter::pi=1._8!3.14152
 !------------------------------------------------------------------------------------
-integer,parameter::nt=2000!2000
+integer,parameter::nt=6500!2000
 integer,parameter::nx=1000
-integer,parameter::np=200
+integer,parameter::np=20
 integer,parameter::debug=0!0:off 1:on
 integer,parameter::boundaryType=4 !1:outflow 2:periodic in x, outflow in y, 3:reflecting 4:periodic, 5:peridoc in x reflecting in y
 
@@ -45,6 +45,6 @@ integer::shockCell(1)
 integer::funit
 !-----------------------------------------------------------------
 
-integer,parameter::tSkip=1
+integer,parameter::tSkip=20
 
 end module constants_mod

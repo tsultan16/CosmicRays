@@ -1,13 +1,5 @@
 !Coarse Grain Momentum Volume(CGMV) algorithm for Isotropic Cosmic Ray-Fokker Planck Equation
 
-!TIME STEP PROBLEM: Convergence to wrong solution without subcycling. (PROBABLY RELATED TO THE BOUNDARY CONDITION PROBLEM) 
-!BOUNDARY CONDITION PROBLEM: Convergence to wrong solution without separate advection, 
-!probably due to incompatibility of boundary conditions with that does advection 
-!and diffusion together. With advection separated from diffusion, solution converges correctly. 
- 
-!Directional bias (converges when shock moves left, but fails to converge for right moving shock).  
-!definitely related to boundary condition problem.
-
 module FokkerPlanck_mod
 use constants_mod
 implicit none
@@ -17,12 +9,14 @@ real*8::fexact(0:np-1),dt2,dtf
 real*8,parameter::cour2=0.5
 integer::nt2
 
+
 contains
 
 subroutine CRinit()
 
 integer::i,j
 real*8::pres,Pc1(0:nx)
+real*8::q2(-1:np,-1:nx),q3(-1:np,-1:nx),qtemp
 
 open(unit=10,file='fp.txt')
 open(unit=13,file='fx.txt')
@@ -35,8 +29,8 @@ open(unit=111,file='ng_x.txt')
 !Initialization
 !----------------------------------------------
 !Momentum space bounds
-pmin=1.D-2
-pmax=1.D40
+pmin=1.D-1
+pmax=1.D25
 
 print*,'np,pmin,pmax=',np,pmin,pmax
 
@@ -72,13 +66,27 @@ end do
 print*,'xd,dx',xd,dx!,dx/xd
 
 
+!----------------------------------------------------------------------
+!Piece-wise power law interpolation: f_(p),j= f_i-1,j*(p/p_i-1)^q_i,j
+!----------------------------------------------------------------------
+do i=1,np-1
+ do j=0,nx-1
+  !Intrabin Spatial Index
+  !q(i,j)=-log(f(i-1,j)/f(i,j))/log(px(i-1)/px(i))
+  q(i,j)=6.0
+ end do
+   q(i,-1)=q(i,0)
+   q(i,nx)=q(i,nx-1)
+end do 
+
+
 !Initialize distribution function
 do i=0,np-1
  do j=0,nx-1
   !if(px(i)>1.D-4)then
-   f(i,j)=px(i)**(-4.5)!*exp(-((xmin+j*dx)/(10.*dx))**2. )
+  f(i,j)=px(i)**(-q(i,j))!*exp(-((xmin+j*dx)/(10.*dx))**2. )
   !else 
-  ! f(i,j)=1.d-10
+  !f(i,j)=1.d-25
   !end if
   
 
@@ -102,39 +110,21 @@ do i=0,np-1
  f(i,nx)=f(i,nx-1)
 end do
 
-!----------------------------------------------------------------------
-!Piece-wise power law interpolation: f_(p),j= f_i-1,j*(p/p_i-1)^q_i,j
-!----------------------------------------------------------------------
-do i=1,np-1
- do j=0,nx-1
-  !Intrabin Spatial Index
-  q(i,j)=-log(f(i-1,j)/f(i,j))/log(px(i-1)/px(i))
- end do
-   q(i,-1)=q(i,0)
-   q(i,nx)=q(i,nx-1)
-end do 
 
 do i=1,np-1
  do j=0,nx-1
    dw=px(i)/px(i-1)
    n(i,j)=f(i-1,j)*(px(i-1)**3.)/(3.-q(i,j))
    n(i,j)=n(i,j)*(dw**(3.-q(i,j))-1.)
-
    g(i,j)=f(i-1,j)*(px(i-1)**4.)/(4.-q(i,j))
    g(i,j)=g(i,j)*(dw**(4.-q(i,j))-1.)
+
  end do
  n(i,-1)=n(i,0)
  n(i,nx)=n(i,nx-1)
  g(i,-1)=g(i,0)
  g(i,nx)=g(i,nx-1)
 end do 
-
-
-
-!do i=1,np-1
-! print*,'i,q=',i,q(i,250)
-!end do
-
 
 !Normalize Distribution function such that CR pressure is equal to downstream fluid pressure
 Pc=0.
@@ -174,6 +164,13 @@ do i=1,np-1
  g(i,nx)=g(i,nx-1)
 end do 
 
+do j=0,nx-1
+  write(13,*) xmin+j*dx,f(5,j)
+end do
+do j=0,np-1
+ write(10,*) px(j),(px(j)**4.)*f(j,1)
+end do
+
 do i=1,np-1
  write(110,*) i,px(i),n(i,1),g(i,1),q(i,1)
 end do
@@ -181,7 +178,6 @@ end do
 do j=0,nx-1
  write(111,*) j,xmin+dx*j,n(10,j),g(10,j),q(10,j)
 end do
-
 
 !Compute CR Pressure
 Pc=0.
@@ -198,6 +194,26 @@ Pc(nx)=Pc(nx-1)
 !  print*,'j,Pc,Pg=',j,Pc(j),pres
 !end do
 
+go to 102
+!Index of Reconstructed distribution function
+do j=0,nx-1   
+ do i=1,np-1
+  dw=px(i)/px(i-1)
+
+  !Update Spectral Index
+  call rootSolveNewton(8._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)  
+  q2(i,j)=qtemp
+  call rootSolveSecant(8._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)
+  q3(i,j)=qtemp
+ end do
+end do
+
+
+print*,'Spectral index before and after reconstruction:'
+do i=1,np-1
+ print*,'i,q, q_Newton, q_Secant=',i,q(i,250),q2(i,250),q3(i,250)
+end do
+102 continue
 
 print*,'Done initializing CR distribution.'
 
@@ -333,7 +349,7 @@ do j=1,np-1
   call computeSpatialCoefficients(j,1)
 
   do k=0,nx-1
-    r(k)=n(j,k)+dt2*(Fn(j,k)-Fn(j-1,k))!+dt2*Qi(j,k,1)
+    r(k)=n(j,k)+dt2*(Fn(j,k)-Fn(j-1,k))+dt2*Qi(j,k,1)
    if(advectionOption==2)then
     r(k)=r(k)-dt2*dudx(k)*n(j,k)
    end if
@@ -354,8 +370,8 @@ do j=1,np-1
   call computeSpatialCoefficients(j,2)
   do k=0,nx-1
     r(k)=g(j,k)+dt2*(Fp(j,k)-Fp(j-1,k)) &
-         +dt2*(-(1./3.)*dudx(k))*g(j,k) !&
-        !+dt2*(q(j,k)*D(j)/(px(j)*px(j)))*g(j,k)+dt2*Qi(j,k,2) 
+         +dt2*(-(1./3.)*dudx(k))*g(j,k) &
+         +dt2*(q(j,k)*D(j)/(px(j)*px(j)))*g(j,k)+dt2*Qi(j,k,2) 
     if(advectionOption==2)then
      r(k)=r(k)+dt2*(-dudx(k))*g(j,k)  
    end if
@@ -366,7 +382,7 @@ do j=1,np-1
    g(j,k)=ftemp(k)   
   end do
 
-  !Open bundaries 
+  !Continuous bundaries 
   n(j,-1)=n(j,0)
   g(j,-1)=g(j,0)
   n(j,nx)=n(j,nx-1)
@@ -387,22 +403,13 @@ end do
 do j=0,nx-1   
  do k=1,np-1
   dw=px(k)/px(k-1)
-  if(dw<0._8)then
-   print*,'***ERROR*** Negative momentum ratio: dw=',dw
-   print*,'Terminating program...'
-   STOP
-  end if
 
   !Update Spectral Index
-  !print*,'j,k,q0,g/np,dw=',j,k,q(k,j),g(k,j)/n(k,j)/px(k-1),dw
-  call rootSolveNewton(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)  
-  !print*,'CHECKPOINT2.0'
-  !call rootSolveSecant(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)
+
+  !call rootSolveNewton(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)  
+  
+  call rootSolveSecant(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)
   !print*,'CHECKPOINT2.5'
-  if(abs(qtemp-3.)<1.d-2 .or. abs(qtemp-4.)<1.d-2)then
-   !print*,'Root solver returned bad value...adjusting.'
-   qtemp=qtemp+0.01  
-  end if
   q(k,j)=qtemp
 
 
@@ -480,14 +487,14 @@ end do
 !-------------------------------------
 
 !for no-flux boundary on the left
-!Wminus(-1)=0.
-!Wplus(-1)=0.
-!Cp(-1)=0.
+Wminus(-1)=0.
+Wplus(-1)=0.
+Cp(-1)=0.
 
 !for no-flux boundary on the right
-Wplus(nx-1)=0.
-Wminus(nx-1)=0.
-Cp(nx-1)=0.
+!Wplus(nx-1)=0.
+!Wminus(nx-1)=0.
+!Cp(nx-1)=0.
 
 
 
@@ -510,7 +517,6 @@ do jj=0,nx-1
    Btx(jj)= Wminus(jj)-Wplus(jj-1)-Cp(jj)-Cp(jj-1)
    Btx(jj)=Btx(jj)*dt2/dx
    Btx(jj)=-Btx(jj)+1.
-
   if(methodType==2)then 
    Btx(jj)=0.5*(Btx(jj)+1.)
   end if
@@ -519,14 +525,14 @@ do jj=0,nx-1
 end do
 
 !for open boundary on the left 
-Atx(0)=0.
-Btx(0)=1.
-Ctx(0)=0.
+!Atx(0)=0.
+!Btx(0)=1.
+!Ctx(0)=0.
 
 !for open boundary on the right 
-!Atx(nx-1)=0.
-!Btx(nx-1)=1.
-!Ctx(nx-1)=0.
+Atx(nx-1)=0.
+Btx(nx-1)=1.
+Ctx(nx-1)=0.
 
 
 
@@ -637,19 +643,19 @@ pres=(gam-1.)*(u2(shockCell(1)-1,3) &
 cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
-pinj=alpha*cs2
+pinj=1.5!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
 !print*,'pinj,pin=',pinj
 
 !Spatial weight function
-wx=(dx*xk-dx*(shockCell(1)-1))/(4.*dx)
-wx=exp(-wx**2.)/sqrt(3.141592*(4.*dx)**2.)
-!if(xk==shockCell(1)-1)then
-!  wx=1.
-!else
-!  wx=0.
-!end if
+!wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
+!wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
+if(xk==shockCell(1)-1)then
+  wx=1.
+else
+  wx=0.
+end if
 
 !Injection source term
 if(pinj<= px(pk) .and. pinj>= px(pk-1))then
@@ -658,9 +664,12 @@ else
  sx=0._8
 end if
 
+
 if(option==2)then
 sx=sx*pinj
 end if
+
+sx=0.
 
 end function Qi
 
@@ -669,7 +678,7 @@ integer,intent(in)::xk
 real*8::fx
 
 real*8,parameter::alpha=2.
-real*8::eps=0.005
+real*8::eps=0.001
 real*8::mp=0.1
 
 real*8::cs2,rho1,rho2,pinj,us,pres,wx
@@ -680,8 +689,8 @@ integer::pin
 !Flux fraction injection model
 !------------------------------
 !Shock Speed
-ut1=-2.*sqrt(gam)    !u1(shockCell(1),2)/u1(shockCell(1),1)
-ut2=0.               !u1(shockCell(1)-2,2)/u1(shockCell(1)-2,1)
+ut1=u2(shockCell(1),2)/u2(shockCell(1),1)
+ut2=u2(shockCell(1)-2,2)/u2(shockCell(1)-2,1)
 us=(1./3.)*(4.*ut2-ut1)     !(1./3.)*2.*sqrt(gam)
 !pre-shock density
 rho1=1.!u1(shockCell(1),1)
@@ -690,26 +699,26 @@ rho1=1.!u1(shockCell(1),1)
 !pres=(gam-1.)*(u1(shockCell(1)-2,3) &
 !-0.5*u1(shockCell(1)-2,2)*u1(shockCell(1)-2,2)/u1(shockCell(1)-2,1))
 !rho2=u1(shockCell(1)-2,1)
-pres=(gam-1.)*(u1(shockCell(1)-1,3) &
--0.5*u1(shockCell(1)-1,2)*u1(shockCell(1)-1,2)/u1(shockCell(1)-1,1))
-rho2=u1(shockCell(1)-1,1)
+pres=(gam-1.)*(u2(shockCell(1)-1,3) &
+-0.5*u2(shockCell(1)-1,2)*u2(shockCell(1)-1,2)/u2(shockCell(1)-1,1))
+rho2=u2(shockCell(1)-1,1)
 cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
 !pinj=lambda*sqrt(gam*pres/ 3.976468)
-pinj=alpha*cs2
+pinj=1.5!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
 !Spatial weight function
-wx=(dx*xk-dx*(shockCell(1)-1))/(4.*dx)
-wx=exp(-wx**2.)/sqrt(3.141592*(4.*dx)**2.)
-!if(xk==shockCell(1)-1)then
-!  wx=1.
-!else
-!  wx=0.
-!end if
+!wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
+!wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
+if(xk==shockCell(1)-1)then
+  wx=1.
+else
+  wx=0.
+end if
 
-fx=0.5*eps*wx*(pin**2.)*rho1*us
+fx=0.5*eps*wx*(pinj**2.)*rho1*us
 
 end function fluidS
 !------------------------------------------------------------------!
@@ -719,14 +728,14 @@ subroutine rootSolveNewton(qi0,gnp,dw,qi)
 real*8::qi0,gnp,dw,qi
 integer::niter=20
 real*8::q0
-real*8::itertol=1.D-2
+real*8::itertol=1.D-6
 integer::i,iterCount=0
 
 !Intial guess
 q0=qi0
 
 do i=1,niter
-  qi=q0-psi(q0,gnp,dw)/psip(q0,gnp,dw)
+  qi=q0-psi2(q0,gnp,dw)/psip2(q0,gnp,dw)
   if(debug==1)then
    print*,'iteration #',i+iterCount*20
    print*,'q0,qi=',q0,qi
@@ -758,20 +767,20 @@ end subroutine rootSolveNewton
 
 subroutine rootSolveSecant(qi0,gnp,dw,qi)
 real*8::qi0,gnp,dw,qi
-integer::niter=50
+integer::niter=20
 real*8::q0,q1
-real*8::itertol=1.D-3
+real*8::itertol=1.D-6
 integer::i,iterCount=0
 
 !Intial guesses
 q0=qi0
-q1=1.001*qi0
+q1=1.00001*qi0
 
 do i=1,niter
-  qi=q1-psi(q1,gnp,dw)/((psi(q1,gnp,dw)-psi(q0,gnp,dw))/(q1-q0))
+  qi=q1-psi2(q1,gnp,dw)/((psi2(q1,gnp,dw)-psi2(q0,gnp,dw))/(q1-q0))
   if(debug==1)then
    print*,'iteration #',i+iterCount*20
-   print*,'q1,qi=',q1,qi
+   print*,'q0,q1,qi=',q0,q1,qi
   end if 
 
   if(abs(qi-q1)<itertol)then
@@ -781,7 +790,7 @@ do i=1,niter
     end if 
     EXIT
   end if
-  if(abs(qi-q1)>itertol .and. i==niter-1 .and. iterCount<10)then
+  if(abs(qi-q1)>itertol .and. i==niter-1 .and. iterCount<5)then
     niter=niter+20
     iterCount=iterCount+1
   end if
@@ -800,31 +809,31 @@ end do
 end subroutine rootSolveSecant
 
 
-function psi(qi,gnp,dw) result(fx)
+function psi2(qi,gnp,dw) result(fx)
 real*8,intent(in)::qi,gnp,dw
 real*8::fx,t1,t2,t3,t4
 
 t1=3._8-qi
 t2=(dw**(4._8-qi))-1.
-t3=-gnp*(4._8-qi)
+t3=4._8-qi
 t4=(dw**(3._8-qi))-1.
 
-fx=t1*t2+t3*t4
+fx=(t1*t2/(t3*t4))-gnp
 
-end function psi
+end function psi2
 
-function psip(qi,gnp,dw) result(fx)
+function psip2(qi,gnp,dw) result(fx)
 real*8,intent(in)::qi,gnp,dw
 real*8::fx,t1,t2,t3,t4
 
-t1=1._8-(dw**(4._8-qi))
-t2=-(3._8-qi)*log(dw)*(dw**(4._8-qi))
-t3=gnp*((dw**(3._8-qi))-1._8)
-t4=gnp*log(dw)*(4._8-qi)*(dw**(3._8-qi))
+t1=1./(4._8-qi)/((dw**(3._8-qi))-1.)
+t2=psi2(qi,gnp,dw)+gnp
+t3=((dw**(3._8-qi))-1.)+(4._8-qi)*log(dw)*(dw**(3._8-qi))
+t4=((dw**(4._8-qi))-1.)+(3._8-qi)*log(dw)*(dw**(4._8-qi))
 
-fx=t1+t2+t3+t4
+fx=t1*(t2*t3-t4)
 
-end function psip
+end function psip2
 
 
 end module FokkerPlanck_mod

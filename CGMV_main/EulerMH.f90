@@ -60,7 +60,7 @@ do i=1,nt
     u2(j,2)=u2(j,2)-(dt/dx)*0.5*(Pc(j+1)-Pc(j-1))
     !Include CR pressure back reaction effect on fluid energy 
     u2(j,3)=u2(j,3)-(dt/dx)*0.5*(Pc(j+1)-Pc(j-1))*(u1(j,2)/u1(j,1))
-    u2(j,3)=u2(j,3)-dt*fluidS(j)*dx
+    !u2(j,3)=u2(j,3)-dt*fluidS(j)*dx
     !----------------------------------------------------------------------------
 
     x=xmin+(j-0.5)*dx 
@@ -113,9 +113,10 @@ do i=1,nt
    end do
    do j=0,np-1
     write(10,*) px(j),(px(j)**4.)*f(j,shockCell(1)-2)
+    !write(10,*) px(j),f(j,shockCell(1)-2)
    end do
    do j=1,np-1
-    write(110,*) j,px(j),n(j,shockCell(1)-1),g(j,shockCell(1)-1),q(j,shockCell(1)-1)
+    write(110,*) j,px(j),n(j,shockCell(1)-2),g(j,shockCell(1)-2),q(j,shockCell(1)-2)
    end do
    do j=0,nx-1
     write(111,*) j,xmin+dx*j,n(1,j),g(1,j),q(1,j)

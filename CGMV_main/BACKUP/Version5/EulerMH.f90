@@ -101,6 +101,8 @@ do i=1,nt
   ! end if 
   !end do
 
+  print*,'du/dx=,',dudx(shockCell(1)-1)
+
   print*,'Updating CR...'
   !Evolve Cosmic Ray Distribution Function 
   call CRevolve()  
@@ -111,9 +113,10 @@ do i=1,nt
    end do
    do j=0,np-1
     write(10,*) px(j),(px(j)**4.)*f(j,shockCell(1)-2)
+    !write(10,*) px(j),f(j,shockCell(1)-2)
    end do
    do j=1,np-1
-    write(110,*) j,px(j),n(j,shockCell(1)-1),g(j,shockCell(1)-1),q(j,shockCell(1)-1)
+    write(110,*) j,px(j),n(j,shockCell(1)-2),g(j,shockCell(1)-2),q(j,shockCell(1)-2)
    end do
    do j=0,nx-1
     write(111,*) j,xmin+dx*j,n(1,j),g(1,j),q(1,j)

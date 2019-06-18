@@ -9,12 +9,14 @@ real*8::fexact(0:np-1),dt2,dtf
 real*8,parameter::cour2=0.5
 integer::nt2
 
+
 contains
 
 subroutine CRinit()
 
 integer::i,j
 real*8::pres,Pc1(0:nx)
+real*8::q2(-1:np,-1:nx),q3(-1:np,-1:nx),qtemp
 
 open(unit=10,file='fp.txt')
 open(unit=13,file='fx.txt')
@@ -27,8 +29,8 @@ open(unit=111,file='ng_x.txt')
 !Initialization
 !----------------------------------------------
 !Momentum space bounds
-pmin=1.D-2
-pmax=1.D40
+pmin=1.D-1
+pmax=1.D25
 
 print*,'np,pmin,pmax=',np,pmin,pmax
 
@@ -64,13 +66,27 @@ end do
 print*,'xd,dx',xd,dx!,dx/xd
 
 
+!----------------------------------------------------------------------
+!Piece-wise power law interpolation: f_(p),j= f_i-1,j*(p/p_i-1)^q_i,j
+!----------------------------------------------------------------------
+do i=1,np-1
+ do j=0,nx-1
+  !Intrabin Spatial Index
+  !q(i,j)=-log(f(i-1,j)/f(i,j))/log(px(i-1)/px(i))
+  q(i,j)=6.0
+ end do
+   q(i,-1)=q(i,0)
+   q(i,nx)=q(i,nx-1)
+end do 
+
+
 !Initialize distribution function
 do i=0,np-1
  do j=0,nx-1
   !if(px(i)>1.D-4)then
-   f(i,j)=px(i)**(-4.5)!*exp(-((xmin+j*dx)/(10.*dx))**2. )
+  f(i,j)=px(i)**(-q(i,j))!*exp(-((xmin+j*dx)/(10.*dx))**2. )
   !else 
-  !f(i,j)=1.d-50
+  !f(i,j)=1.d-25
   !end if
   
 
@@ -94,39 +110,21 @@ do i=0,np-1
  f(i,nx)=f(i,nx-1)
 end do
 
-!----------------------------------------------------------------------
-!Piece-wise power law interpolation: f_(p),j= f_i-1,j*(p/p_i-1)^q_i,j
-!----------------------------------------------------------------------
-do i=1,np-1
- do j=0,nx-1
-  !Intrabin Spatial Index
-  q(i,j)=-log(f(i-1,j)/f(i,j))/log(px(i-1)/px(i))
- end do
-   q(i,-1)=q(i,0)
-   q(i,nx)=q(i,nx-1)
-end do 
 
 do i=1,np-1
  do j=0,nx-1
    dw=px(i)/px(i-1)
    n(i,j)=f(i-1,j)*(px(i-1)**3.)/(3.-q(i,j))
    n(i,j)=n(i,j)*(dw**(3.-q(i,j))-1.)
-
    g(i,j)=f(i-1,j)*(px(i-1)**4.)/(4.-q(i,j))
    g(i,j)=g(i,j)*(dw**(4.-q(i,j))-1.)
+
  end do
  n(i,-1)=n(i,0)
  n(i,nx)=n(i,nx-1)
  g(i,-1)=g(i,0)
  g(i,nx)=g(i,nx-1)
 end do 
-
-
-
-!do i=1,np-1
-! print*,'i,q=',i,q(i,250)
-!end do
-
 
 !Normalize Distribution function such that CR pressure is equal to downstream fluid pressure
 Pc=0.
@@ -142,7 +140,7 @@ end do
 do i=0,np-1
  do j=0,nx-1
    pres=(gam-1.)*(u1(j,3)-0.5*u1(j,2)*u1(j,2)/u1(j,1))
-   f(i,j)=f(i,j)*(pres/Pc(j))*0.01!*100.
+   f(i,j)=f(i,j)*(pres/Pc(j))*100.
   end do
   f(i,-1)=f(i,0)
   f(i,nx)=f(i,nx-1)
@@ -165,6 +163,13 @@ do i=1,np-1
  g(i,-1)=g(i,0)
  g(i,nx)=g(i,nx-1)
 end do 
+
+do j=0,nx-1
+  write(13,*) xmin+j*dx,f(5,j)
+end do
+do j=0,np-1
+ write(10,*) px(j),(px(j)**4.)*f(j,1)
+end do
 
 do i=1,np-1
  write(110,*) i,px(i),n(i,1),g(i,1),q(i,1)
@@ -189,6 +194,26 @@ Pc(nx)=Pc(nx-1)
 !  print*,'j,Pc,Pg=',j,Pc(j),pres
 !end do
 
+go to 102
+!Index of Reconstructed distribution function
+do j=0,nx-1   
+ do i=1,np-1
+  dw=px(i)/px(i-1)
+
+  !Update Spectral Index
+  call rootSolveNewton(8._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)  
+  q2(i,j)=qtemp
+  call rootSolveSecant(8._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)
+  q3(i,j)=qtemp
+ end do
+end do
+
+
+print*,'Spectral index before and after reconstruction:'
+do i=1,np-1
+ print*,'i,q, q_Newton, q_Secant=',i,q(i,250),q2(i,250),q3(i,250)
+end do
+102 continue
 
 print*,'Done initializing CR distribution.'
 
@@ -378,23 +403,13 @@ end do
 do j=0,nx-1   
  do k=1,np-1
   dw=px(k)/px(k-1)
-  if(dw<0._8)then
-   print*,'***ERROR*** Negative momentum ratio: dw=',dw
-   print*,'Terminating program...'
-   STOP
-  end if
 
-  !print*,'CHECKPOINT2.0'
   !Update Spectral Index
-  !print*,'j,k,q0,g/np,dw=',j,k,q(k,j),g(k,j)/n(k,j)/px(k-1),dw
-  call rootSolveNewton(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)  
+
+  !call rootSolveNewton(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)  
   
-  !call rootSolveSecant(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)
+  call rootSolveSecant(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)
   !print*,'CHECKPOINT2.5'
-  if(abs(qtemp-3.)<1.d-2 .or. abs(qtemp-4.)<1.d-2)then
-   !print*,'Root solver returned bad value...adjusting.'
-   qtemp=qtemp+0.01  
-  end if
   q(k,j)=qtemp
 
 
@@ -628,19 +643,19 @@ pres=(gam-1.)*(u2(shockCell(1)-1,3) &
 cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
-pinj=0.05!alpha*cs2
+pinj=1.5!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
 !print*,'pinj,pin=',pinj
 
 !Spatial weight function
-wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
-wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
-!if(xk==shockCell(1)-1)then
-!  wx=1.
-!else
-!  wx=0.
-!end if
+!wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
+!wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
+if(xk==shockCell(1)-1)then
+  wx=1.
+else
+  wx=0.
+end if
 
 !Injection source term
 if(pinj<= px(pk) .and. pinj>= px(pk-1))then
@@ -653,6 +668,8 @@ end if
 if(option==2)then
 sx=sx*pinj
 end if
+
+sx=0.
 
 end function Qi
 
@@ -689,17 +706,17 @@ cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
 !pinj=lambda*sqrt(gam*pres/ 3.976468)
-pinj=0.05!alpha*cs2
+pinj=1.5!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
 !Spatial weight function
-wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
-wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
-!if(xk==shockCell(1)-1)then
-!  wx=1.
-!else
-!  wx=0.
-!end if
+!wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
+!wx=exp(-wx**2.)/sqrt(3.141592*(10.*dx)**2.)
+if(xk==shockCell(1)-1)then
+  wx=1.
+else
+  wx=0.
+end if
 
 fx=0.5*eps*wx*(pinj**2.)*rho1*us
 
@@ -709,16 +726,16 @@ end function fluidS
 
 subroutine rootSolveNewton(qi0,gnp,dw,qi)
 real*8::qi0,gnp,dw,qi
-integer::niter=3
+integer::niter=20
 real*8::q0
-real*8::itertol=1.D-2
+real*8::itertol=1.D-6
 integer::i,iterCount=0
 
 !Intial guess
 q0=qi0
 
 do i=1,niter
-  qi=q0-psi(q0,gnp,dw)/psip(q0,gnp,dw)
+  qi=q0-psi2(q0,gnp,dw)/psip2(q0,gnp,dw)
   if(debug==1)then
    print*,'iteration #',i+iterCount*20
    print*,'q0,qi=',q0,qi
@@ -750,20 +767,20 @@ end subroutine rootSolveNewton
 
 subroutine rootSolveSecant(qi0,gnp,dw,qi)
 real*8::qi0,gnp,dw,qi
-integer::niter=50
+integer::niter=20
 real*8::q0,q1
-real*8::itertol=1.D-3
+real*8::itertol=1.D-6
 integer::i,iterCount=0
 
 !Intial guesses
 q0=qi0
-q1=1.001*qi0
+q1=1.00001*qi0
 
 do i=1,niter
-  qi=q1-psi(q1,gnp,dw)/((psi(q1,gnp,dw)-psi(q0,gnp,dw))/(q1-q0))
+  qi=q1-psi2(q1,gnp,dw)/((psi2(q1,gnp,dw)-psi2(q0,gnp,dw))/(q1-q0))
   if(debug==1)then
    print*,'iteration #',i+iterCount*20
-   print*,'q1,qi=',q1,qi
+   print*,'q0,q1,qi=',q0,q1,qi
   end if 
 
   if(abs(qi-q1)<itertol)then
@@ -773,7 +790,7 @@ do i=1,niter
     end if 
     EXIT
   end if
-  if(abs(qi-q1)>itertol .and. i==niter-1 .and. iterCount<10)then
+  if(abs(qi-q1)>itertol .and. i==niter-1 .and. iterCount<5)then
     niter=niter+20
     iterCount=iterCount+1
   end if
@@ -792,31 +809,31 @@ end do
 end subroutine rootSolveSecant
 
 
-function psi(qi,gnp,dw) result(fx)
+function psi2(qi,gnp,dw) result(fx)
 real*8,intent(in)::qi,gnp,dw
 real*8::fx,t1,t2,t3,t4
 
 t1=3._8-qi
 t2=(dw**(4._8-qi))-1.
-t3=-gnp*(4._8-qi)
+t3=4._8-qi
 t4=(dw**(3._8-qi))-1.
 
-fx=t1*t2+t3*t4
+fx=(t1*t2/(t3*t4))-gnp
 
-end function psi
+end function psi2
 
-function psip(qi,gnp,dw) result(fx)
+function psip2(qi,gnp,dw) result(fx)
 real*8,intent(in)::qi,gnp,dw
 real*8::fx,t1,t2,t3,t4
 
-t1=1._8-(dw**(4._8-qi))
-t2=-(3._8-qi)*log(dw)*(dw**(4._8-qi))
-t3=gnp*((dw**(3._8-qi))-1._8)
-t4=gnp*log(dw)*(4._8-qi)*(dw**(3._8-qi))
+t1=1./(4._8-qi)/((dw**(3._8-qi))-1.)
+t2=psi2(qi,gnp,dw)+gnp
+t3=((dw**(3._8-qi))-1.)+(4._8-qi)*log(dw)*(dw**(3._8-qi))
+t4=((dw**(4._8-qi))-1.)+(3._8-qi)*log(dw)*(dw**(4._8-qi))
 
-fx=t1+t2+t3+t4
+fx=t1*(t2*t3-t4)
 
-end function psip
+end function psip2
 
 
 end module FokkerPlanck_mod

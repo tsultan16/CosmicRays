@@ -1,19 +1,20 @@
 #CR State Plot
 #plot from file: output.txt
 
-set terminal gif animate delay 20 size 1280, 680
+set terminal gif animate delay 5 size 1280, 680
 set output 'CRState.gif'
 
-tSteps=200
+tSteps=325
 nx=1000
-np=200
+np=20
 
-
+tSkip=1
 
 #set key font ",10"
 
 set autoscale
 do for [i=0:tSteps-1] {
+  j=i*tSkip
   set title "Time Step = #".(i+1)
   set multiplot layout 1,2
 
@@ -25,7 +26,7 @@ do for [i=0:tSteps-1] {
   #set xrange[1e-3:1e6]
   set yrange[1e-12:1e-1]
 
-  plot "fp.txt" every ::i*np+1::np+(i*np)-1 using 1:2 with linespoint pointtype 6 lc rgb "red" notitle
+  plot "fp.txt" every ::j*np+1::np+(j*np)-1 using 1:2 with linespoint pointtype 6 lc rgb "red" notitle
   unset title
   unset xlabel
   unset ylabel
@@ -39,7 +40,7 @@ do for [i=0:tSteps-1] {
   set ylabel "f(x)"
   #set xrange [0:1]
   #set yrange[0:1e3] 
-  plot "fx.txt" every ::i*nx+1::nx+(i*nx)-1 using 1:2 with lines lc rgb "red" notitle
+  plot "fx.txt" every ::j*nx+1::nx+(j*nx)-1 using 1:2 with lines lc rgb "red" notitle
   unset title
   unset xlabel
   unset ylabel
@@ -48,7 +49,7 @@ do for [i=0:tSteps-1] {
 
 #  set xlabel "x"
 #  set ylabel "Fluid Density"
-#  plot "output_fluid.txt" every ::i*nx+1::nx+(i*nx)-1 using 1:2 with linespoint pointtype 7 lc rgb "blue" notitle 
+#  plot "output_fluid.txt" every ::j*nx+1::nx+(j*nx)-1 using 1:2 with linespoint pointtype 7 lc rgb "blue" notitle 
 #  unset title
 #  unset xlabel
 #  unset ylabel
@@ -56,7 +57,7 @@ do for [i=0:tSteps-1] {
 
   #set xlabel "x"
   #set ylabel "Fluid Velocity"
-  #plot "output_fluid.txt" every ::i*nx+1::nx+(i*nx)-1 using 1:3 with linespoint pointtype 7 lc rgb "blue" notitle 
+  #plot "output_fluid.txt" every ::j*nx+1::nx+(j*nx)-1 using 1:3 with linespoint pointtype 7 lc rgb "blue" notitle 
   #unset title
   #unset xlabel
   #unset ylabel
