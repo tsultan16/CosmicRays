@@ -1,10 +1,10 @@
 #CR State Plot
 #plot from file: output.txt
 
-set terminal gif animate delay 5 size 1280, 680
+set terminal gif animate delay 10 size 1280, 680
 set output 'CRState.gif'
 
-tSteps=325
+tSteps=300
 nx=1000
 np=20
 
