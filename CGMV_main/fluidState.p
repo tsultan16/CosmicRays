@@ -5,8 +5,8 @@ set terminal gif animate delay 5 size 1280, 680
 set output 'FluidState.gif'
 
 
-tSteps=325
-nx=1000
+tSteps=500
+nx=2000
 tSkip=1
 
 

@@ -3,10 +3,10 @@
 set terminal gif animate delay 5 size 1280, 680
 set output 'CRState2.gif'
 
-tSteps=325
-np=20
+tSteps=500
+np=50
 np=np-1
-nx=1000
+nx=2000
 
 tSkip=1
 
@@ -26,7 +26,7 @@ do for [i=0:tSteps-1] {
   #set xrange[1e-3:1e6]
   #set yrange[0:1.3e6]
 
-  plot "ng_p.txt" every ::j*np+1::np+(j*np)-1 using 2:3 with lines lc rgb "red" notitle
+  plot "ng_p.txt" every ::j*np+1::np+(j*np)-1 using 2:3 with linespoint pointtype 5 lc rgb "red" notitle
   unset title
   unset xlabel
   unset ylabel
@@ -38,7 +38,7 @@ do for [i=0:tSteps-1] {
   #set xrange[1e-3:1e6]
   #set yrange[1.e-6:5e-3]
 
-  plot "ng_p.txt" every ::j*np+1::np+(j*np)-1 using 2:4 with lines lc rgb "red" notitle
+  plot "ng_p.txt" every ::j*np+1::np+(j*np)-1 using 2:4 with linespoint pointtype 5 lc rgb "red" notitle
   unset title
   unset xlabel
   unset ylabel
@@ -88,7 +88,8 @@ do for [i=0:tSteps-1] {
 
 
   unset multiplot
-  
+  print "Time Step=#".i
+   
 }
 
 unset output

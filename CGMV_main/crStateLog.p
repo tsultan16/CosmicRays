@@ -1,12 +1,12 @@
 #CR State Plot
 #plot from file: output.txt
 
-set terminal gif animate delay 5 size 1280, 680
+set terminal gif animate delay 10 size 1280, 680
 set output 'CRState.gif'
 
-tSteps=325
-nx=1000
-np=20
+tSteps=500
+nx=2000
+np=50
 
 tSkip=1
 
@@ -24,7 +24,7 @@ do for [i=0:tSteps-1] {
   set xlabel "p"
   set ylabel "p^4 f(p)"
   #set xrange[1e-3:1e6]
-  set yrange[1e-12:1e-1]
+  set yrange[1e-15:1e-1]
 
   plot "fp.txt" every ::j*np+1::np+(j*np)-1 using 1:2 with linespoint pointtype 6 lc rgb "red" notitle
   unset title

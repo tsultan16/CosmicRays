@@ -144,7 +144,7 @@ do j=-1,nx-1
 !w_j+1/2(0)
 !---------------------------------
 
-go to 112
+!go to 112
 !set left and right states for local Riemann problem at j+1/2 cell interface
 rhoL=max(densmin,ubR(j,1))
 uL=ubR(j,2)/ubR(j,1)
@@ -158,9 +158,9 @@ uR=ubL(j+1,2)/ubL(j+1,1)
 pR=max(premin,(gam-1.)*(ubL(j+1,3)-0.5*ubL(j+1,2)*ubL(j+1,2)/ubL(j+1,1)))
 aR=sqrt(gam*pR/rhoR)
 HR=0.5*uR*uR+gamul*aR*aR
-112 continue
+!112 continue
 
-!go to 122 
+go to 122 
 rhoL=max(densmin,u1(j,1))
 uL=u1(j,2)/u1(j,1)
 pL=max(premin,(gam-1.)*(u1(j,3)-0.5*u1(j,2)*u1(j,2)/u1(j,1)))
@@ -172,7 +172,7 @@ uR=u1(j+1,2)/u1(j+1,1)
 pR=max(premin,(gam-1.)*(u1(j+1,3)-0.5*u1(j+1,2)*u1(j+1,2)/u1(j+1,1)))
 aR=sqrt(gam*pR/rhoR)
 HR=0.5*uR*uR+gamul*aR*aR
-!122 continue
+122 continue
 
 delrho=rhoR-rhoL
 delu=uR-uL
@@ -180,13 +180,12 @@ delp=pR-pL
 
 !Modify Fluxes to include Cosmic Ray pressure
 FL(1)=rhoL*uL
-FL(2)=rhoL*uL*uL+pL!+Pc(j)
-FL(3)=0.5*rhoL*uL*uL*uL+gam*gamul*pL*uL!+Pc(j)*uL
+FL(2)=rhoL*uL*uL+pL
+FL(3)=0.5*rhoL*uL*uL*uL+gam*gamul*pL*uL
 
 FR(1)=rhoR*uR
-FR(2)=rhoR*uR*uR+pR!+Pc(j+1)
-FR(3)=0.5*rhoR*uR*uR*uR+gam*gamul*pR*uR!+Pc(j+1)*uR
-
+FR(2)=rhoR*uR*uR+pR
+FR(3)=0.5*rhoR*uR*uR*uR+gam*gamul*pR*uR
 if(debug==1)then
   print*,'Cell: ',j
   print*,'Left State=',rhoL,uL,pL
@@ -277,10 +276,10 @@ end if
 !-----------------------------------
 !Roe solution on t=0 line: u(x/t=0)
 !-----------------------------------
-do k=1,3
-  u3(j,k)=0.5*(u1(j,k)+u1(j+1,k))-0.5*(alpha(1)*sign(1._8,lambda(j,1))*K1(k) &
-         +alpha(2)*sign(1._8,lambda(j,2))*K2(k)+alpha(3)*sign(1._8,lambda(j,3))*K3(k)) 
-end do
+!do k=1,3
+!  u3(j,k)=0.5*(u1(j,k)+u1(j+1,k))-0.5*(alpha(1)*sign(1._8,lambda(j,1))*K1(k) &
+!         +alpha(2)*sign(1._8,lambda(j,2))*K2(k)+alpha(3)*sign(1._8,lambda(j,3))*K3(k)) 
+!end do
 
 !ustar(j)=(u1(j,2)+alpha(3)*K3(2))/(u1(j,1)+alpha(3)*K3(1))
 

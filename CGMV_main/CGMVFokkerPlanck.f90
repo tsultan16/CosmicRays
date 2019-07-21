@@ -16,7 +16,7 @@ subroutine CRinit()
 
 integer::i,j
 real*8::pres,Pc1(0:nx)
-real*8::q2(-1:np,-1:nx),q3(-1:np,-1:nx),qtemp
+real*8::q1(-1:np,-1:nx),q2(-1:np,-1:nx),q3(-1:np,-1:nx),qtemp
 
 open(unit=10,file='fp.txt')
 open(unit=13,file='fx.txt')
@@ -29,7 +29,7 @@ open(unit=111,file='ng_x.txt')
 !Initialization
 !----------------------------------------------
 !Momentum space bounds
-pmin=1.D-1
+pmin=1.D0
 pmax=1.D25
 
 print*,'np,pmin,pmax=',np,pmin,pmax
@@ -72,8 +72,7 @@ print*,'xd,dx',xd,dx!,dx/xd
 do i=1,np-1
  do j=0,nx-1
   !Intrabin Spatial Index
-  !q(i,j)=-log(f(i-1,j)/f(i,j))/log(px(i-1)/px(i))
-  q(i,j)=6.0
+  q(i,j)=6.
  end do
    q(i,-1)=q(i,0)
    q(i,nx)=q(i,nx-1)
@@ -110,7 +109,6 @@ do i=0,np-1
  f(i,nx)=f(i,nx-1)
 end do
 
-
 do i=1,np-1
  do j=0,nx-1
    dw=px(i)/px(i-1)
@@ -131,7 +129,6 @@ Pc=0.
 do j=0,nx-1
  do i=1,np-1
   Pc(j)=Pc(j)+pi*(4.*cl/3.)*g(i,j)
-  !Pc(j)=Pc(j)+(4.*cl/3.)*(px(i)**3.)*f(i,j)*dp2(i)
  end do
 end do
 
@@ -179,6 +176,7 @@ do j=0,nx-1
  write(111,*) j,xmin+dx*j,n(10,j),g(10,j),q(10,j)
 end do
 
+
 !Compute CR Pressure
 Pc=0.
 do j=0,nx-1
@@ -189,21 +187,24 @@ end do
 Pc(-1)=Pc(0)
 Pc(nx)=Pc(nx-1)
 
-!do j=0,nx-1
-!   pres=(gam-1.)*(u1(j,3)-0.5*u1(j,2)*u1(j,2)/u1(j,1))
-!  print*,'j,Pc,Pg=',j,Pc(j),pres
-!end do
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 go to 102
+do j=0,nx-1
+   pres=(gam-1.)*(u1(j,3)-0.5*u1(j,2)*u1(j,2)/u1(j,1))
+  print*,'j,Pc,Pg=',j,Pc(j),pres
+end do
+
 !Index of Reconstructed distribution function
 do j=0,nx-1   
  do i=1,np-1
   dw=px(i)/px(i-1)
 
   !Update Spectral Index
-  call rootSolveNewton(8._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)  
+  call rootSolveBisection(g(i,j)/n(i,j)/px(i-1),dw,qtemp)
+  q1(i,j)=qtemp
+  call rootSolveNewton(1._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)  
   q2(i,j)=qtemp
-  call rootSolveSecant(8._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)
+  call rootSolveSecant(1._8,g(i,j)/n(i,j)/px(i-1),dw,qtemp)
   q3(i,j)=qtemp
  end do
 end do
@@ -211,9 +212,10 @@ end do
 
 print*,'Spectral index before and after reconstruction:'
 do i=1,np-1
- print*,'i,q, q_Newton, q_Secant=',i,q(i,250),q2(i,250),q3(i,250)
+ print*,'i,q,q_Bisect,q_Newton, q_Secant=',i,q(i,250),q1(i,250),q2(i,250),q3(i,250)
 end do
 102 continue
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 print*,'Done initializing CR distribution.'
 
@@ -334,9 +336,6 @@ end do
 
 end if
 
-!print*,'CHECKPOINT1'
-
-
 !Spatial Diffusion+Source Terms 	
 do j=1,np-1
   ftemp=0.
@@ -395,7 +394,14 @@ end do
 
 end do
 
-!print*,'CHECKPOINT2'
+
+do j=1,np-1
+ write(110,*) j,px(j),n(j,shockCell(1)-2),g(j,shockCell(1)-2),q(j,shockCell(1)-2)
+end do
+do j=0,nx-1
+ write(111,*) j,xmin+dx*j,n(1,j),g(1,j),q(1,j)
+end do
+
 
 !----------------------------------------------
 !Reconstruct distribution function from moments
@@ -403,13 +409,12 @@ end do
 do j=0,nx-1   
  do k=1,np-1
   dw=px(k)/px(k-1)
-
   !Update Spectral Index
 
-  !call rootSolveNewton(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)  
-  
-  call rootSolveSecant(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)
-  !print*,'CHECKPOINT2.5'
+  !print*,'q,g,n,p,gnp,dw=',q(k,j),g(k,j),n(k,j),px(k-1),g(k,j)/n(k,j)/px(k-1),dw
+  call rootSolveNewton(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)  
+  !call rootSolveSecant(q(k,j),g(k,j)/n(k,j)/px(k-1),dw,qtemp)
+  !call rootSolveBisection(g(k,j)/n(k,j)/px(k-1),dw,qtemp)
   q(k,j)=qtemp
 
 
@@ -604,7 +609,7 @@ integer,intent(in)::xk,pk
 real*8::kx
 
 !kx=0.0005
-kx=0.05/u2(xk,1)
+kx=0.1/u2(xk,1)
 !kx=0.1*(px(pk)**0.51)
 end function Kxx
 
@@ -615,7 +620,7 @@ integer,intent(in)::pk,xk,option
 real*8::sx
 
 real*8,parameter::alpha=2.
-real*8::eps=0.001
+real*8::eps=1.d-6!0.001
 real*8::mp=0.1
 
 real*8::cs2,rho1,rho2,pinj,us,pres,wx
@@ -643,10 +648,10 @@ pres=(gam-1.)*(u2(shockCell(1)-1,3) &
 cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
-pinj=1.5!alpha*cs2
+pinj=2.5!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
-!print*,'pinj,pin=',pinj
+!print*,'pinj,pin=',pinj,pin
 
 !Spatial weight function
 !wx=(dx*xk-dx*(shockCell(1)-1))/(10.*dx)
@@ -664,12 +669,11 @@ else
  sx=0._8
 end if
 
-
 if(option==2)then
 sx=sx*pinj
 end if
 
-sx=0.
+sx=0._8 !Injection off
 
 end function Qi
 
@@ -706,7 +710,7 @@ cs2=sqrt(gam*pres/rho2)
 
 !Compute injection momentum
 !pinj=lambda*sqrt(gam*pres/ 3.976468)
-pinj=1.5!alpha*cs2
+pinj=2.5!alpha*cs2
 pin=np*log(pinj/pmin)/log(pmax/pmin)
 
 !Spatial weight function
@@ -719,6 +723,8 @@ else
 end if
 
 fx=0.5*eps*wx*(pinj**2.)*rho1*us
+
+fx=0._8 !Injection off
 
 end function fluidS
 !------------------------------------------------------------------!
@@ -774,7 +780,7 @@ integer::i,iterCount=0
 
 !Intial guesses
 q0=qi0
-q1=1.00001*qi0
+q1=qi0+0.00001
 
 do i=1,niter
   qi=q1-psi2(q1,gnp,dw)/((psi2(q1,gnp,dw)-psi2(q0,gnp,dw))/(q1-q0))
@@ -807,6 +813,75 @@ do i=1,niter
 end do
 
 end subroutine rootSolveSecant
+
+subroutine rootSolveBisection(gnp,dw,qi)
+real*8::gnp,dw,qi
+real*8::tol=1.D-8
+
+integer::i,iterCount,domainCount,maxIter
+real*8::a,b,c
+
+maxIter=50
+
+iterCount=0
+domainCount=0
+
+!find interval endpoints
+a=-10.
+b=10.
+
+!print*,'a,b,f(a),f(b)=',a,b,f(a),f(b)
+
+do while(sign(1._8,psi2(a,gnp,dw))==sign(1._8,psi2(b,gnp,dw)) .and. domainCount<20)
+  a=10.*a
+  b=10.*b
+  domainCount=domainCount+1
+  !print*,'Extending interval: a,b,f(a),f(b)=',a,b,f(a),f(b)
+end do
+
+!Compute midpoint
+c=0.5*(a+b)
+
+!print*,'c,f(c)=',c,f(c)
+
+do while(iterCount<=maxIter) 
+  !print*,'Iteration#=',iterCount
+  !print*,'a,b,c=',a,b,c
+  !print*,'f(a),f(b),f(c)=',f(a),f(b),f(c)
+  if(sign(1._8,psi2(a,gnp,dw)) .ne. sign(1._8,psi2(c,gnp,dw)))then
+    b=c
+  end if
+  if(sign(1._8,psi2(b,gnp,dw)) .ne. sign(1._8,psi2(c,gnp,dw)))then
+    a=c
+  end if
+  c=0.5*(a+b)
+
+  if(abs(psi2(c,gnp,dw))<tol)then
+    !print*,'Iterations converged suceesfully.'
+    !print*,'root=',c
+    qi=c
+    exit
+  end if
+
+  if(abs(psi2(c,gnp,dw))>tol .and. iterCount==maxIter+i*10 .and. i<10)then
+    !print*,'Root finder has not converged yet.'
+    !print*,'Adding 10 more iterations.'
+    maxIter=maxIter+10
+    i=i+1
+  end if
+  
+  if(abs(psi2(c,gnp,dw))>tol .and. i==10)then
+    print*,'Root finder fails to converge.'
+    STOP
+  end if
+  
+  iterCount=iterCount+1
+
+  !print*,'a,b,f(c)=',a,b,f(c)
+end do
+
+
+end subroutine rootSolveBisection
 
 
 function psi2(qi,gnp,dw) result(fx)
